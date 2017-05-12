@@ -23,3 +23,12 @@ https://geeksww.com/tutorials/operating_systems/linux/installation/downloading_c
 
 If this doesn't work try:
 `sudo apt-get install python-opencv`
+# Installing homebrew
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+
+# Installing cv2 with SURF
+brew install git cmake pkg-config jpeg libpng libtiff openexr eigen tbb
+
+conda install -c menpo opencv3
+
+conda update hdf5
