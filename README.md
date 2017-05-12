@@ -23,5 +23,7 @@ https://geeksww.com/tutorials/operating_systems/linux/installation/downloading_c
 
 # Installing cv2 with SURF
 brew install git cmake pkg-config jpeg libpng libtiff openexr eigen tbb
+
 conda install -c menpo opencv3
+
 conda update hdf5
