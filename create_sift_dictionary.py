@@ -7,7 +7,7 @@ from sklearn import cluster
 import random
 
 # make sure you change the image directory
-image_dir = '/Users/emjtang/Dropbox/_spr17/geweldig/data/'
+image_dir = '/Users/emjtang/Dropbox/_spr17/geweldig/data/images/'
 
 def keyboard(banner=None):
 		''' Function that mimics the matlab keyboard command '''
@@ -26,7 +26,7 @@ def keyboard(banner=None):
 				return
 
 # number of "words" we want in the dictionary
-n_clusters = 500
+n_clusters = 50
 
 # speeded up robust features (speeded up version of SIFT)
 # read here for more info: http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_feature2d/py_surf_intro/py_surf_intro.html
@@ -54,9 +54,13 @@ def createDictionary(image_files):
 		else:
 			all_des = numpy.vstack((all_des, des))
 
+	print 'initialize kmeans'
 	k_means = cluster.KMeans(n_clusters=n_clusters, n_init=4)
+
+	print 'fitting clusters'
 	k_means.fit(all_des)
 
+	print 'k means labels'
 	labels = k_means.labels_
 	values = k_means.cluster_centers_.squeeze()
 
@@ -69,12 +73,13 @@ def createDictionary(image_files):
 	# 	else:
 	# 		blah = numpy.vstack((blah, des))
 	# pred = k_means.predict(blah)
-
+	print 'dumping pickle'
 	with open('kmeans_500.pickle', 'w') as f:
 		pickle.dump(k_means, f)
 
 def main():
 	all_files = glob.glob(image_dir + '*.jpg')
+	print 'creating dictionary'
 	createDictionary(all_files[:100])
 
 if __name__ == '__main__':
