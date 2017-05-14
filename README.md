@@ -27,8 +27,11 @@ If this doesn't work try:
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 
 # Installing cv2 with SURF
-brew install git cmake pkg-config jpeg libpng libtiff openexr eigen tbb
+Brew may depend on curl.h
+`sudo apt-get install libcurl4-openssl-dev`
 
-conda install -c menpo opencv3
+`brew install git cmake pkg-config jpeg libpng libtiff openexr eigen tbb`
 
-conda update hdf5
+`conda install -c menpo opencv3`
+
+`conda update hdf5`
