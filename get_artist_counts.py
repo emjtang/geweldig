@@ -1,4 +1,4 @@
-# usage: cat museum_data.csv |  python get_artist_counts.py ( > museum_data_top10.csv)
+# usage: cat museum_data.csv |  python get_artist_counts.py  > museum_data_top10.csv
 
 from collections import Counter
 import sys
@@ -16,14 +16,12 @@ for line in sys.stdin:
 	artist = line.split(",")[2]
 	if artist in ["principalOrFirstMaker", "anonymous", ""]:
 		continue
-	c[artist] += 1
 	width = int(line.split(",")[5]) 
 	height = int(line.split(",")[6]) 
 	if artist in top_ten:
 		if c[artist] < 100:
 			print line
-		c[artist] += 1
-
+			c[artist] += 1
 
 
 

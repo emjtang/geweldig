@@ -11,6 +11,7 @@ import os
 
 image_dir = '/Users/emjtang/Dropbox/_spr17/geweldig/data/images_top10/'
  
+image_dir = 'data/images_top10/'
 def keyboard(banner=None):
     ''' Function that mimics the matlab keyboard command '''
     # use exception trick to pick up the current frame
@@ -28,7 +29,8 @@ def keyboard(banner=None):
         return
 
 def download_image(info):
-    image_id, image_url = info
+    image_id, image_url, artist = info
+    artist = re.sub('[^0-9a-zA-Z]+', '', artist)
     if image_url == '':
         print "Uh oh, no image url to be found"
         return
@@ -37,7 +39,10 @@ def download_image(info):
         print "Already downloaded!"
         return
     print image_id + '\t' + image_url
-    urllib.urlretrieve(image_url, image_dir + image_id + ".jpg")
+    artist_dir = image_dir + artist + "/"
+    if not os.path.exists(artist_dir):
+        os.makedirs(artist_dir)
+    urllib.urlretrieve(image_url, artist_dir + image_id + ".jpg")
 
 def main():
     filename = 'museum_data_top10.csv'
@@ -45,7 +50,7 @@ def main():
         reader = csv.DictReader(listings_file)
         listings = list(reader);
 
-        image_info = [(row['id'], row['image_url']) for row in listings]
+        image_info = [(row['id'], row['image_url'], row['principalOrFirstMaker']) for row in listings]
 
     pool = multiprocessing.Pool()
     pool.map(download_image, image_info)
