@@ -9,7 +9,7 @@ import multiprocessing
 import urllib
 import os
 
-image_dir = '/Users/emjtang/Dropbox/_spr17/geweldig/data/images/'
+image_dir = '/Users/emjtang/Dropbox/_spr17/geweldig/data/images_top10/'
  
 def keyboard(banner=None):
     ''' Function that mimics the matlab keyboard command '''
@@ -40,7 +40,7 @@ def download_image(info):
     urllib.urlretrieve(image_url, image_dir + image_id + ".jpg")
 
 def main():
-    filename = 'museum_data_short.csv'
+    filename = 'museum_data_top10.csv'
     with open(filename) as listings_file:
         reader = csv.DictReader(listings_file)
         listings = list(reader);
