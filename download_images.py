@@ -11,7 +11,7 @@ import os
 
 image_dir = '/Users/emjtang/Dropbox/_spr17/geweldig/data/images_top10/'
  
-image_dir = 'data/images_top10/'
+image_dir = '/home/tarabalakrishnan/geweldig/data/images_top10/'
 def keyboard(banner=None):
     ''' Function that mimics the matlab keyboard command '''
     # use exception trick to pick up the current frame
