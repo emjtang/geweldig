@@ -36,7 +36,6 @@ def download_image(info):
     #if not os.path.exists(artist_dir):
      #   os.makedirs(artist_dir)
 
-    artist = re.sub('[^0-9a-zA-Z]+', '', artist)
     if image_url == '':
         print "Uh oh, no image url to be found"
         return
@@ -57,6 +56,13 @@ def main():
         image_info = [(row['id'], row['image_url'], row['principalOrFirstMaker']) for row in listings]
 
     image_info_with_type = []
+    
+    if not os.path.exists(image_dir + "train/"):
+	os.makedirs(image_dir + "train/")
+    if not os.path.exists(image_dir + "test/"):
+        os.makedirs(image_dir + "test/")
+    if not os.path.exists(image_dir + "val/"):
+        os.makedirs(image_dir + "val/")
     for img in image_info:
         #print img
         image_id, image_url, artist = img
@@ -66,6 +72,7 @@ def main():
             folder = "test/"
         elif artist_counts[artist] >= 60:
             folder = "val/"
+	artist = re.sub('[^0-9a-zA-Z]+', '', artist)
         artist_dir = image_dir +  folder + artist + "/"
         if not os.path.exists(artist_dir):
             os.makedirs(artist_dir)
