@@ -2,6 +2,5 @@
 slim/.ipynb_checkpoints/
 slim/MNIST_data/
 slim/mnistSlim_tutorial.ipynb
-vgg_model/ca_example/vgg_16_2016_08_28.tar.gz
-vgg_model/ca_example/vgg_16.ckpt
+vgg_model/ca_example/
 
