@@ -35,3 +35,14 @@ Brew may depend on curl.h
 `conda install -c menpo opencv3`
 
 `conda update hdf5`
+
+# Installing correct tensorflow version on GPU:
+Check python version: 
+$ python -V
+
+If python 2.7, use
+sudo pip install --upgrade https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow_gpu-1.2.0rc0-cp27-none-linux_x86_64.whl
+
+If python 3.5 us
+pip3 install --upgrade https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow_gpu-1.2.0rc0-cp35-cp35m-linux_x86_64.whl
+
