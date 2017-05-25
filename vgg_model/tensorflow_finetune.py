@@ -59,8 +59,8 @@ import tensorflow.contrib.slim.nets
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--train_dir', default='coco-animals/train')
-parser.add_argument('--val_dir', default='coco-animals/val')
+parser.add_argument('--train_dir', default='data/train')
+parser.add_argument('--val_dir', default='data/val')
 parser.add_argument('--model_path', default='vgg_16.ckpt', type=str)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
@@ -143,7 +143,7 @@ def main(args):
             image_decoded = tf.image.decode_jpeg(image_string, channels=3)          # (1)
             image = tf.cast(image_decoded, tf.float32)
 
-            smallest_side = 256.0
+            smallest_side = 225.0
             height, width = tf.shape(image)[0], tf.shape(image)[1]
             height = tf.to_float(height)
             width = tf.to_float(width)
@@ -164,10 +164,10 @@ def main(args):
         # Note: we don't normalize the data here, as VGG was trained without normalization
         def training_preprocess(image, label):
             crop_image = tf.random_crop(image, [224, 224, 3])                       # (3)
-            flip_image = tf.image.flip_left_right(crop_image)                       # (4)
+            #flip_image = tf.image.flip_left_right(crop_image)                       # (4)
 
             means = tf.reshape(tf.constant(VGG_MEAN), [1, 1, 3])
-            centered_image = flip_image - means                                     # (5)
+            centered_image = crop_image - means                                     # (5)
 
             return centered_image, label
 
