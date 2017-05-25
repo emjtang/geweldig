@@ -7,11 +7,11 @@ Based on:
 Required packages: tensorflow (v1.2)
 You can install the release candidate 1.2.0rc0 here:
 https://www.tensorflow.org/versions/r1.2/install/
-Download the weights trained on ImageNet for VGG:
+Download the weights trained on ImageNet for Inception:
 ```
-wget http://download.tensorflow.org/models/vgg_16_2016_08_28.tar.gz
-tar -xvf vgg_16_2016_08_28.tar.gz
-rm vgg_16_2016_08_28.tar.gz
+wget http://download.tensorflow.org/models/inception_v1_2016_08_28.tar.gz
+tar -xvf inception_v1_2016_08_28.tar.gz
+rm inception_v1_2016_08_28.tar.gz
 ```
 For this example we will use a tiny dataset of images from the COCO dataset.
 We have chosen eight types of animals (bear, bird, cat, dog, giraffe, horse,
@@ -61,18 +61,18 @@ import tensorflow.contrib.slim.nets
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_dir', default='data/train')
 parser.add_argument('--val_dir', default='data/val')
-parser.add_argument('--model_path', default='vgg_16.ckpt', type=str)
+parser.add_argument('--model_path', default='inception_v1.ckpt', type=str)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
-parser.add_argument('--num_epochs1', default=10, type=int)
-parser.add_argument('--num_epochs2', default=10, type=int)
+parser.add_argument('--num_epochs1', default=5, type=int)
+parser.add_argument('--num_epochs2', default=5, type=int)
 parser.add_argument('--learning_rate1', default=1e-3, type=float)
 parser.add_argument('--learning_rate2', default=1e-5, type=float)
 parser.add_argument('--dropout_keep_prob', default=0.5, type=float)
 parser.add_argument('--weight_decay', default=5e-4, type=float)
 
 VGG_MEAN = [123.68, 116.78, 103.94]
-output_file = "vgg_fc7_10epoch.csv"
+output_file = "inception_v1.csv"
 
 
 def list_images(directory):
@@ -240,36 +240,36 @@ def main(args):
         # ---------------------------------------------------------------------
         # Now that we have set up the data, it's time to set up the model.
         # For this example, we'll use VGG-16 pretrained on ImageNet. We will remove the
-        # last fully connected layer (fc8) and replace it with our own, with an
+        # last fully connected layer (Conv2d_0b_1x1) and replace it with our own, with an
         # output size num_classes=8
         # We will first train the last layer for a few epochs.
         # Then we will train the entire model on our dataset for a few epochs.
 
         # Get the pretrained model, specifying the num_classes argument to create a new
-        # fully connected replacing the last one, called "vgg_16/fc8"
-        # Each model has a different architecture, so "vgg_16/fc8" will change in another model.
+        # fully connected replacing the last one, called "inception_v1/Conv2d_0b_1x1"
+        # Each model has a different architecture, so "inception_v1/Conv2d_0b_1x1" will change in another model.
         # Here, logits gives us directly the predicted scores we wanted from the images.
-        # We pass a scope to initialize "vgg_16/fc8" weights with he_initializer
-        vgg = tf.contrib.slim.nets.vgg
-        with slim.arg_scope(vgg.vgg_arg_scope(weight_decay=args.weight_decay)):
-            logits, _ = vgg.vgg_16(images, num_classes=num_classes, is_training=is_training,
+        # We pass a scope to initialize "inception_v1/Conv2d_0b_1x1" weights with he_initializer
+        inception_v1 = tf.contrib.slim.nets.inception_v1
+        with slim.arg_scope(inception_v1.inception_v1_arg_scope(weight_decay=args.weight_decay)):
+            logits, _ = inception_v1.inception_v1(images, num_classes=num_classes, is_training=is_training,
                                    dropout_keep_prob=args.dropout_keep_prob)
 
         # Specify where the model checkpoint is (pretrained weights).
         model_path = args.model_path
         assert(os.path.isfile(model_path))
 
-        # Restore only the layers up to fc7 (included)
+        # Restore only the layers up to Conv2d_0b_3x3 (included)
         # Calling function `init_fn(sess)` will load all the pretrained weights.
-        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc7', 'vgg_16/fc8'])
+        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['inception_v1/Conv2d_0b_3x3', 'inception_v1/Conv2d_0b_1x1'])
         init_fn = tf.contrib.framework.assign_from_checkpoint_fn(model_path, variables_to_restore)
 
-        # Initialization operation from scratch for the new "fc8" layers
+        # Initialization operation from scratch for the new "Conv2d_0b_1x1" layers
         # `get_variables` will only return the variables whose name starts with the given pattern
-        fc7_variables = tf.contrib.framework.get_variables('vgg_16/fc7')
-        fc7_init = tf.variables_initializer(fc7_variables)
-        fc8_variables = tf.contrib.framework.get_variables('vgg_16/fc8')
-        fc8_init = tf.variables_initializer(fc8_variables)
+        Conv2d_0b_3x3_variables = tf.contrib.framework.get_variables('inception_v1/Conv2d_0b_3x3')
+        Conv2d_0b_3x3_init = tf.variables_initializer(Conv2d_0b_3x3_variables)
+        Conv2d_0b_1x1_variables = tf.contrib.framework.get_variables('inception_v1/Conv2d_0b_1x1')
+        Conv2d_0b_1x1_init = tf.variables_initializer(Conv2d_0b_1x1_variables)
 
         # ---------------------------------------------------------------------
         # Using tf.losses, any loss is added to the tf.GraphKeys.LOSSES collection
@@ -277,13 +277,13 @@ def main(args):
         tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
         loss = tf.losses.get_total_loss()
 
-        # First we want to train only the reinitialized last layer fc8 for a few epochs.
-        # We run minimize the loss only with respect to the fc8 variables (weight and bias).i
-        fc7_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        fc7_train_op = fc7_optimizer.minimize(loss, var_list=fc7_variables)
+        # First we want to train only the reinitialized last layer Conv2d_0b_1x1 for a few epochs.
+        # We run minimize the loss only with respect to the Conv2d_0b_1x1 variables (weight and bias).i
+        Conv2d_0b_3x3_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
+        Conv2d_0b_3x3_train_op = Conv2d_0b_3x3_optimizer.minimize(loss, var_list=Conv2d_0b_3x3_variables)
 
-        fc8_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        fc8_train_op = fc8_optimizer.minimize(loss, var_list=fc8_variables)
+        Conv2d_0b_1x1_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
+        Conv2d_0b_1x1_train_op = Conv2d_0b_1x1_optimizer.minimize(loss, var_list=Conv2d_0b_1x1_variables)
 
         # Then we want to finetune the entire model for a few epochs.
         # We run minimize the loss only with respect to all the variables.
@@ -305,8 +305,8 @@ def main(args):
     f.write("epoch,learning_rate,train,val\n")
     with tf.Session(graph=graph) as sess:
         init_fn(sess)  # load the pretrained weights
-        sess.run(fc7_init)
-        sess.run(fc8_init)  # initialize the new fc8 layer
+        sess.run(Conv2d_0b_3x3_init)
+        sess.run(Conv2d_0b_1x1_init)  # initialize the new Conv2d_0b_1x1 layer
         train_accs = []
         val_accs = []
         # Update only the last layer for a few epochs.
@@ -318,8 +318,8 @@ def main(args):
             sess.run(train_init_op)
             while True:
                 try:
-                    _ = sess.run(fc7_train_op, {is_training: True})
-                    _ = sess.run(fc8_train_op, {is_training: True})
+                    _ = sess.run(Conv2d_0b_3x3_train_op, {is_training: True})
+                    _ = sess.run(Conv2d_0b_1x1_train_op, {is_training: True})
                 except tf.errors.OutOfRangeError:
                     break
 
@@ -328,7 +328,7 @@ def main(args):
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc)+"\n")
+            f.write(str(epoch) + "," + str(learning_rate1) + "," + str(train_acc) + "," + str(val_acc) + "\n")
             train_accs.append(train_acc)
             val_accs.append(val_acc)
 	
@@ -349,7 +349,7 @@ def main(args):
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(args.learning_rate2) + "," + str(train_acc) + "," + str(val_acc) +"\n")
+            f.write(str(epoch) + "," + str(learning_rate1) + "," + str(train_acc) + "," + str(val_acc) + "\n")
             train_accs_full.append(train_acc)
             val_accs_full.append(val_acc)
         f.close()
