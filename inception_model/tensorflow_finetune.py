@@ -52,15 +52,15 @@ coco-animals/
 
 import argparse
 import os
-
+import inception_preprocessing as ip
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import tensorflow.contrib.slim.nets
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--train_dir', default='data/train')
-parser.add_argument('--val_dir', default='data/val')
+parser.add_argument('--train_dir', default='../data/images_top10/train')
+parser.add_argument('--val_dir', default='../data/images_top10/val')
 parser.add_argument('--model_path', default='inception_v1.ckpt', type=str)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
@@ -201,7 +201,7 @@ def main(args):
         train_dataset = tf.contrib.data.Dataset.from_tensor_slices((train_filenames, train_labels))
         train_dataset = train_dataset.map(_parse_function,
             num_threads=args.num_workers, output_buffer_size=args.batch_size)
-        train_dataset = train_dataset.map(training_preprocess,
+        train_dataset = train_dataset.map(ip.preprocess_train,
             num_threads=args.num_workers, output_buffer_size=args.batch_size)
         train_dataset = train_dataset.shuffle(buffer_size=10000)  # don't forget to shuffle
         batched_train_dataset = train_dataset.batch(args.batch_size)
@@ -212,7 +212,7 @@ def main(args):
         val_dataset = tf.contrib.data.Dataset.from_tensor_slices((val_filenames, val_labels))
         val_dataset = val_dataset.map(_parse_function,
             num_threads=args.num_workers, output_buffer_size=args.batch_size)
-        val_dataset = val_dataset.map(val_preprocess,
+        val_dataset = val_dataset.map(ip.preprocess_val,
             num_threads=args.num_workers, output_buffer_size=args.batch_size)
         batched_val_dataset = val_dataset.batch(args.batch_size)
 
@@ -250,7 +250,7 @@ def main(args):
         # Each model has a different architecture, so "inception_v1/Conv2d_0b_1x1" will change in another model.
         # Here, logits gives us directly the predicted scores we wanted from the images.
         # We pass a scope to initialize "inception_v1/Conv2d_0b_1x1" weights with he_initializer
-        inception_v1 = tf.contrib.slim.nets.inception_v1
+        inception_v1 = tf.contrib.slim.nets.inception
         with slim.arg_scope(inception_v1.inception_v1_arg_scope(weight_decay=args.weight_decay)):
             logits, _ = inception_v1.inception_v1(images, num_classes=num_classes, is_training=is_training,
                                    dropout_keep_prob=args.dropout_keep_prob)
@@ -261,14 +261,12 @@ def main(args):
 
         # Restore only the layers up to Conv2d_0b_3x3 (included)
         # Calling function `init_fn(sess)` will load all the pretrained weights.
-        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['inception_v1/Conv2d_0b_3x3', 'inception_v1/Conv2d_0b_1x1'])
+        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionV1/Mixed_5c/Branch_3/Conv2d_0b_1x1'])
         init_fn = tf.contrib.framework.assign_from_checkpoint_fn(model_path, variables_to_restore)
 
         # Initialization operation from scratch for the new "Conv2d_0b_1x1" layers
         # `get_variables` will only return the variables whose name starts with the given pattern
-        Conv2d_0b_3x3_variables = tf.contrib.framework.get_variables('inception_v1/Conv2d_0b_3x3')
-        Conv2d_0b_3x3_init = tf.variables_initializer(Conv2d_0b_3x3_variables)
-        Conv2d_0b_1x1_variables = tf.contrib.framework.get_variables('inception_v1/Conv2d_0b_1x1')
+        Conv2d_0b_1x1_variables = tf.contrib.framework.get_variables('InceptionV1/Mixed_5c/Branch_3/Conv2d_0b_1x1')
         Conv2d_0b_1x1_init = tf.variables_initializer(Conv2d_0b_1x1_variables)
 
         # ---------------------------------------------------------------------
@@ -279,8 +277,6 @@ def main(args):
 
         # First we want to train only the reinitialized last layer Conv2d_0b_1x1 for a few epochs.
         # We run minimize the loss only with respect to the Conv2d_0b_1x1 variables (weight and bias).i
-        Conv2d_0b_3x3_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        Conv2d_0b_3x3_train_op = Conv2d_0b_3x3_optimizer.minimize(loss, var_list=Conv2d_0b_3x3_variables)
 
         Conv2d_0b_1x1_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
         Conv2d_0b_1x1_train_op = Conv2d_0b_1x1_optimizer.minimize(loss, var_list=Conv2d_0b_1x1_variables)
@@ -318,7 +314,6 @@ def main(args):
             sess.run(train_init_op)
             while True:
                 try:
-                    _ = sess.run(Conv2d_0b_3x3_train_op, {is_training: True})
                     _ = sess.run(Conv2d_0b_1x1_train_op, {is_training: True})
                 except tf.errors.OutOfRangeError:
                     break
