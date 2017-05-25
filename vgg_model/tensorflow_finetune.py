@@ -64,8 +64,8 @@ parser.add_argument('--val_dir', default='data/val')
 parser.add_argument('--model_path', default='vgg_16.ckpt', type=str)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
-parser.add_argument('--num_epochs1', default=10, type=int)
-parser.add_argument('--num_epochs2', default=10, type=int)
+parser.add_argument('--num_epochs1', default=5, type=int)
+parser.add_argument('--num_epochs2', default=5, type=int)
 parser.add_argument('--learning_rate1', default=1e-3, type=float)
 parser.add_argument('--learning_rate2', default=1e-5, type=float)
 parser.add_argument('--dropout_keep_prob', default=0.5, type=float)
@@ -260,11 +260,13 @@ def main(args):
 
         # Restore only the layers up to fc7 (included)
         # Calling function `init_fn(sess)` will load all the pretrained weights.
-        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc8'])
+        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc7', 'vgg_16/fc8'])
         init_fn = tf.contrib.framework.assign_from_checkpoint_fn(model_path, variables_to_restore)
 
         # Initialization operation from scratch for the new "fc8" layers
         # `get_variables` will only return the variables whose name starts with the given pattern
+        fc7_variables = tf.contrib.framework.get_variables('vgg_16/fc7')
+        fc7_init = tf.variables_initializer(fc7_variables)
         fc8_variables = tf.contrib.framework.get_variables('vgg_16/fc8')
         fc8_init = tf.variables_initializer(fc8_variables)
 
@@ -275,7 +277,10 @@ def main(args):
         loss = tf.losses.get_total_loss()
 
         # First we want to train only the reinitialized last layer fc8 for a few epochs.
-        # We run minimize the loss only with respect to the fc8 variables (weight and bias).
+        # We run minimize the loss only with respect to the fc8 variables (weight and bias).i
+        fc7_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
+        fc7_train_op = fc7_optimizer.minimize(loss, var_list=fc7_variables)
+
         fc8_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
         fc8_train_op = fc8_optimizer.minimize(loss, var_list=fc8_variables)
 
@@ -297,8 +302,10 @@ def main(args):
     # We can call our training operations with `sess.run(train_op)` for instance
     with tf.Session(graph=graph) as sess:
         init_fn(sess)  # load the pretrained weights
+        sess.run(fc7_init)
         sess.run(fc8_init)  # initialize the new fc8 layer
-
+        train_accs = []
+        val_accs = []
         # Update only the last layer for a few epochs.
         for epoch in range(args.num_epochs1):
             # Run an epoch over the training data.
@@ -308,6 +315,7 @@ def main(args):
             sess.run(train_init_op)
             while True:
                 try:
+                    _ = sess.run(fc7_train_op, {is_training: True})
                     _ = sess.run(fc8_train_op, {is_training: True})
                 except tf.errors.OutOfRangeError:
                     break
@@ -317,8 +325,11 @@ def main(args):
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-
-
+            train_accs.append(train_acc)
+            val_accs.append(val_acc)
+	
+        train_accs_full = []
+        val_accs_full = []
         # Train the entire model for a few more epochs, continuing with the *same* weights.
         for epoch in range(args.num_epochs2):
             print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
@@ -334,7 +345,8 @@ def main(args):
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-
+            train_accs_full.append(train_acc)
+            val_accs_full.append(val_acc)
 
 if __name__ == '__main__':
     args = parser.parse_args()
