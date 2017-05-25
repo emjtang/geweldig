@@ -1,0 +1,4 @@
+/data
+slim/.ipynb_checkpoints/
+slim/MNIST_data/
+slim/mnistSlim_tutorial.ipynb
