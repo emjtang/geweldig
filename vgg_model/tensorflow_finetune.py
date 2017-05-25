@@ -302,7 +302,7 @@ def main(args):
     # The session is the interface to *run* the computational graph.
     # We can call our training operations with `sess.run(train_op)` for instance
     f = open(output_file, 'w')
-    f.write("epoch,learning_rate,train,val")
+    f.write("epoch,learning_rate,train,val\n")
     with tf.Session(graph=graph) as sess:
         init_fn(sess)  # load the pretrained weights
         sess.run(fc7_init)
@@ -328,7 +328,7 @@ def main(args):
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc))
+            f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc)+"\n")
             train_accs.append(train_acc)
             val_accs.append(val_acc)
 	
@@ -349,7 +349,7 @@ def main(args):
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(args.learning_rate2) + "," + str(train_acc) + "," + str(val_acc))
+            f.write(str(epoch) + "," + str(args.learning_rate2) + "," + str(train_acc) + "," + str(val_acc) +"\n")
             train_accs_full.append(train_acc)
             val_accs_full.append(val_acc)
         f.close()
