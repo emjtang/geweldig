@@ -33,8 +33,8 @@ def download_image(info):
     image_id, image_url, artist, folder = info
     artist = re.sub('[^0-9a-zA-Z]+', '', artist)
     artist_dir = image_dir +  folder + artist + "/"
-    if not os.path.exists(artist_dir):
-        os.makedirs(artist_dir)
+    #if not os.path.exists(artist_dir):
+     #   os.makedirs(artist_dir)
 
     artist = re.sub('[^0-9a-zA-Z]+', '', artist)
     if image_url == '':
@@ -66,6 +66,9 @@ def main():
             folder = "test/"
         elif artist_counts[artist] >= 60:
             folder = "val/"
+        artist_dir = image_dir +  folder + artist + "/"
+        if not os.path.exists(artist_dir):
+            os.makedirs(artist_dir)
         image_info_with_type.append((image_id, image_url, artist, folder))
 
 
