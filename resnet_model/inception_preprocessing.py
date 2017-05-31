@@ -281,14 +281,16 @@ def preprocess_train(image, label):
     height,width = tf.shape(image)[0], tf.shape(image)[1]
     height = tf.to_float(height)
     width = tf.to_float(width)
-    processed_image = preprocess_image(image, 224, 224, is_training)
+    processed_image = preprocess_image(image, 299, 299, is_training)
+    processed_image = 2 * (processed_image/255.0) - 1.0
     return processed_image, label
 
 def preprocess_val(image, label):
     height,width = tf.shape(image)[0], tf.shape(image)[1]
     height = tf.to_float(height)
     width = tf.to_float(width)
-    processed_image = preprocess_image(image, 224, 224, False)
+    processed_image = preprocess_image(image, 299, 299, False)
+    processed_image = 2 * (processed_image/255.0) - 1.0
     return processed_image, label
 def preprocess_image(image, height, width,
                      is_training=False,

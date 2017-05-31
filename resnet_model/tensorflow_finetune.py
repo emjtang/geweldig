@@ -56,12 +56,12 @@ import inception_preprocessing as ip
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import tensorflow.contrib.slim.nets
-
+from inception_resnet_v2 import inception_resnet_v2, inception_resnet_v2_arg_scope
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_dir', default='../data/images_top10/train')
 parser.add_argument('--val_dir', default='../data/images_top10/val')
-parser.add_argument('--model_path', default='resnet_v2_152.ckpt', type=str)
+parser.add_argument('--model_path', default='inception_resnet_v2_2016_08_30.ckpt', type=str)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
 parser.add_argument('--num_epochs1', default=5, type=int)
@@ -74,7 +74,8 @@ parser.add_argument('--weight_decay', default=5e-4, type=float)
 VGG_MEAN = [123.68, 116.78, 103.94]
 output_file = "inception_v1.csv"
 
-
+log_dir = './log'
+checkpoint_file = './inception_resnet_v2_2016_08_30.ckpt'
 def list_images(directory):
     """
     Get all the images and labels in directory/label/*.jpg
@@ -250,10 +251,9 @@ def main(args):
         # Each model has a different architecture, so "inception_v1/Conv2d_0b_1x1" will change in another model.
         # Here, logits gives us directly the predicted scores we wanted from the images.
         # We pass a scope to initialize "inception_v1/Conv2d_0b_1x1" weights with he_initializer
-        inception_v1 = tf.contrib.slim.nets.inception
-        with slim.arg_scope(inception_v1.inception_v1_arg_scope(weight_decay=args.weight_decay)):
-            logits, _ = inception_v1.inception_v1(images, num_classes=num_classes, is_training=is_training,
-                                   dropout_keep_prob=args.dropout_keep_prob)
+        #resnet_v2 = tf.models.slim.nets.inception_resnet_v2
+        with slim.arg_scope(inception_resnet_v2_arg_scope(weight_decay=args.weight_decay)):
+            logits, _ = inception_resnet_v2(images, num_classes=num_classes, is_training=is_training)
 
         # Specify where the model checkpoint is (pretrained weights).
         model_path = args.model_path
@@ -261,26 +261,32 @@ def main(args):
 
         # Restore only the layers up to Conv2d_0b_3x3 (included)
         # Calling function `init_fn(sess)` will load all the pretrained weights.
-        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionV1/Mixed_5c'])
+        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['InceptionResnetV2/Logits', 'InceptionResnetV2/AuxLogits'])
         init_fn = tf.contrib.framework.assign_from_checkpoint_fn(model_path, variables_to_restore)
 
         # Initialization operation from scratch for the new "Conv2d_0b_1x1" layers
         # `get_variables` will only return the variables whose name starts with the given pattern
-        Conv2d_0b_1x1_variables = tf.contrib.framework.get_variables('InceptionV1/Mixed_5c')
-        Conv2d_0b_1x1_init = tf.variables_initializer(Conv2d_0b_1x1_variables)
+        logits_variables = tf.contrib.framework.get_variables('InceptionResnetV2/Logits')
+        logits_init = tf.variables_initializer(logits_variables)
+
+        auxlogits_variables = tf.contrib.framework.get_variables('InceptionResnetV2/AuxLogits')
+        auxlogits_init = tf.variables_initializer(auxlogits_variables)
 
         # ---------------------------------------------------------------------
         # Using tf.losses, any loss is added to the tf.GraphKeys.LOSSES collection
         # We can then call the total loss easily
-        tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+        #one_hot_labels = slim.one_hot_encoding(labels, num_classes)
+        tf.losses.sparse_softmax_cross_entropy(labels = labels, logits=logits)
         loss = tf.losses.get_total_loss()
 
         # First we want to train only the reinitialized last layer Conv2d_0b_1x1 for a few epochs.
         # We run minimize the loss only with respect to the Conv2d_0b_1x1 variables (weight and bias).i
 
-        Conv2d_0b_1x1_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        Conv2d_0b_1x1_train_op = Conv2d_0b_1x1_optimizer.minimize(loss, var_list=Conv2d_0b_1x1_variables)
+        logits_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
+        logits_train_op = logits_optimizer.minimize(loss, var_list=logits_variables)
 
+        auxlogits_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
+        auxlogits_train_op = auxlogits_optimizer.minimize(loss, var_list=auxlogits_variables)
         # Then we want to finetune the entire model for a few epochs.
         # We run minimize the loss only with respect to all the variables.
         full_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate2)
@@ -301,11 +307,17 @@ def main(args):
     f.write("epoch,learning_rate,train,val\n")
     with tf.Session(graph=graph) as sess:
         init_fn(sess)  # load the pretrained weights
-        sess.run(Conv2d_0b_3x3_init)
-        sess.run(Conv2d_0b_1x1_init)  # initialize the new Conv2d_0b_1x1 layer
+        sess.run(logits_init)
+        sess.run(auxlogits_init)  # initialize the new Conv2d_0b_1x1 layer
         train_accs = []
         val_accs = []
         # Update only the last layer for a few epochs.
+        '''
+        saver = tf.train.Saver(variables_to_restore)
+        def restore_fn(sess):
+        return saver.restore(sess, checkpoint_file)
+        sv = tf.train.Supervisor(logdir = log_dir, summary_op = None, init_fn = restore_fn)
+        with sv.managed_session() as sess:'''
         for epoch in range(args.num_epochs1):
             # Run an epoch over the training data.
             print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
@@ -314,7 +326,8 @@ def main(args):
             sess.run(train_init_op)
             while True:
                 try:
-                    _ = sess.run(Conv2d_0b_1x1_train_op, {is_training: True})
+                    _ = sess.run(logits_train_op, {is_training: True})
+                    _ = sess.run(auxlogits_train_op, {is_training: True})
                 except tf.errors.OutOfRangeError:
                     break
 
@@ -323,10 +336,10 @@ def main(args):
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(learning_rate1) + "," + str(train_acc) + "," + str(val_acc) + "\n")
+            f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc) + "\n")
             train_accs.append(train_acc)
             val_accs.append(val_acc)
-	
+        
         train_accs_full = []
         val_accs_full = []
         # Train the entire model for a few more epochs, continuing with the *same* weights.
@@ -344,9 +357,10 @@ def main(args):
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(learning_rate1) + "," + str(train_acc) + "," + str(val_acc) + "\n")
+            f.write(str(epoch) + "," + str(args.learning_rate2) + "," + str(train_acc) + "," + str(val_acc) + "\n")
             train_accs_full.append(train_acc)
             val_accs_full.append(val_acc)
+        #sv.saver.save(sess, sv.save_path)
         f.close()
 
 if __name__ == '__main__':
