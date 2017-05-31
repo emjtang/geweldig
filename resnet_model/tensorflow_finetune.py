@@ -9,9 +9,9 @@ You can install the release candidate 1.2.0rc0 here:
 https://www.tensorflow.org/versions/r1.2/install/
 Download the weights trained on ImageNet for Inception:
 ```
-wget http://download.tensorflow.org/models/inception_v1_2016_08_28.tar.gz
-tar -xvf inception_v1_2016_08_28.tar.gz
-rm inception_v1_2016_08_28.tar.gz
+wget http://download.tensorflow.org/models/resnet_v2_152.tar.gz
+tar -xvf resnet_v2_152.tar.gz
+rm resnet_v2_152.tar.gz
 ```
 For this example we will use a tiny dataset of images from the COCO dataset.
 We have chosen eight types of animals (bear, bird, cat, dog, giraffe, horse,
