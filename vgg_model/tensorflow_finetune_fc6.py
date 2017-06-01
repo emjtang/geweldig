@@ -59,20 +59,20 @@ import tensorflow.contrib.slim.nets
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--train_dir', default='data/train')
-parser.add_argument('--val_dir', default='data/val')
+parser.add_argument('--train_dir', default='../data/images_top10/train')
+parser.add_argument('--val_dir', default='../data/images_top10/val')
 parser.add_argument('--model_path', default='vgg_16.ckpt', type=str)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
-parser.add_argument('--num_epochs1', default=10, type=int)
-parser.add_argument('--num_epochs2', default=10, type=int)
+parser.add_argument('--num_epochs1', default=15, type=int)
+parser.add_argument('--num_epochs2', default=5, type=int)
 parser.add_argument('--learning_rate1', default=1e-3, type=float)
 parser.add_argument('--learning_rate2', default=1e-5, type=float)
 parser.add_argument('--dropout_keep_prob', default=0.5, type=float)
 parser.add_argument('--weight_decay', default=5e-4, type=float)
 
 VGG_MEAN = [123.68, 116.78, 103.94]
-output_file = "vgg_fc7_10epoch.csv"
+output_file = "vgg_fc7_10epoch_loss.csv"
 
 
 def list_images(directory):
@@ -97,6 +97,24 @@ def list_images(directory):
     labels = [label_to_int[l] for l in labels]
 
     return filenames, labels
+
+
+def check_loss(sess, loss, is_training, dataset_init_op):
+    """
+    Check the accuracy of the model on either train or val (depending on dataset_init_op).
+    """
+    # Initialize the correct dataset
+    sess.run(dataset_init_op)
+    total_loss = 0
+    while True:
+        try:
+            total_loss = sess.run(loss, {is_training: False})
+        except tf.errors.OutOfRangeError:
+            break
+
+    # Return the fraction of datapoints that were correctly classified
+    return total_loss
+
 
 
 def check_accuracy(sess, correct_prediction, is_training, dataset_init_op):
@@ -307,7 +325,7 @@ def main(args):
     # The session is the interface to *run* the computational graph.
     # We can call our training operations with `sess.run(train_op)` for instance
     f = open(output_file, 'w')
-    f.write("epoch,learning_rate,train,val")
+    f.write("epoch,learning_rate,train,val,t_loss,v_loss\n")
     with tf.Session(graph=graph) as sess:
         init_fn(sess)  # load the pretrained weights
         sess.run(fc6_init)
@@ -333,9 +351,13 @@ def main(args):
             # Check accuracy on the train and val sets every epoch.
             train_acc = check_accuracy(sess, correct_prediction, is_training, train_init_op)
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
-            print('Train accuracy: %f' % train_acc)
+            epoch_loss_train = check_loss(sess, loss, is_training, train_init_op)
+            print('Training Loss: %f' % epoch_loss_train)
+            epoch_loss_val = check_loss(sess, loss, is_training, val_init_op)
+            print('Validation Loss: %f' % epoch_loss_val)
+	    print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc))
+            f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc)+ "," + str(epoch_loss_train) + "," + str(epoch_loss_val)+ "\n")
             train_accs.append(train_acc)
             val_accs.append(val_acc)
 	
@@ -354,9 +376,13 @@ def main(args):
             # Check accuracy on the train and val sets every epoch
             train_acc = check_accuracy(sess, correct_prediction, is_training, train_init_op)
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
+            epoch_loss_train = check_loss(sess, loss, is_training, train_init_op)
+            print('Training Loss: %f' % epoch_loss_train)
+            epoch_loss_val = check_loss(sess, loss, is_training, val_init_op)
+            print('Validation Loss: %f' % epoch_loss_val)
             print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(args.learning_rate2) + "," + str(train_acc) + "," + str(val_acc))
+            f.write(str(epoch) + "," + str(args.learning_rate2) + "," + str(train_acc) + "," + str(val_acc)+ "," + str(epoch_loss_train) + "," + str(epoch_loss_val) + "\n")
             train_accs_full.append(train_acc)
             val_accs_full.append(val_acc)
         f.close()
