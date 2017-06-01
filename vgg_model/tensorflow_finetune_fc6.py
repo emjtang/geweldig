@@ -317,7 +317,9 @@ def main(args):
         prediction = tf.to_int32(tf.argmax(logits, 1))
         correct_prediction = tf.equal(prediction, labels)
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
+	tf.summary.scalar('accuracy', accuracy)
+        tf.summary.scalar('loss', loss)
+        merged = tf.summary.merge_all()
         tf.get_default_graph().finalize()
 
     # --------------------------------------------------------------------------
@@ -328,6 +330,7 @@ def main(args):
     f.write("epoch,learning_rate,train,val,t_loss,v_loss\n")
     with tf.Session(graph=graph) as sess:
         init_fn(sess)  # load the pretrained weights
+        train_writer = tf.summary.FileWriter("train", sess.graph)
         sess.run(fc6_init)
         sess.run(fc7_init)
         sess.run(fc8_init)  # initialize the new fc8 layer
@@ -342,9 +345,10 @@ def main(args):
             sess.run(train_init_op)
             while True:
                 try:
-                    _ = sess.run(fc6_train_op, {is_training: True})
-                    _ = sess.run(fc7_train_op, {is_training: True})
-                    _ = sess.run(fc8_train_op, {is_training: True})
+                    summary, _ = sess.run([merged, fc6_train_op], {is_training: True})
+                    summary, _ = sess.run([merged, fc7_train_op], {is_training: True})
+                    summary, _ = sess.run([merged, fc8_train_op], {is_training: True})
+                    train_writer.add_summary(summary, epoch)
                 except tf.errors.OutOfRangeError:
                     break
 
@@ -357,6 +361,7 @@ def main(args):
             print('Validation Loss: %f' % epoch_loss_val)
 	    print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
+
             f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc)+ "," + str(epoch_loss_train) + "," + str(epoch_loss_val)+ "\n")
             train_accs.append(train_acc)
             val_accs.append(val_acc)
