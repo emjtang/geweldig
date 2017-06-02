@@ -73,7 +73,7 @@ parser.add_argument('--weight_decay', default=5e-4, type=float)
 VGG_MEAN = [123.68, 116.78, 103.94]
 output_file = "vgg_fc7_10epoch_loss.csv"
 
-def compute_saliency_maps(X, y, model):
+def compute_saliency_maps(X, y, classifier, image, labels, sess):
     """
     Compute a class saliency map using the model for images X and labels y.
 
@@ -92,8 +92,8 @@ def compute_saliency_maps(X, y, model):
     #
     # Note: this is equivalent to scores[np.arange(N), y] we used in NumPy
     # for computing vectorized losses.
-    correct_scores = tf.gather_nd(model.classifier,
-                                  tf.stack((tf.range(X.shape[0]), model.labels), axis=1))
+    correct_scores = tf.gather_nd(classifier,
+                                  tf.stack((tf.range(X.shape[0]), labels), axis=1))
     ###############################################################################
     # TODO: Implement this function. You should use the correct_scores to compute #
     # the loss, and tf.gradients to compute the gradient of the loss with respect #
@@ -102,9 +102,9 @@ def compute_saliency_maps(X, y, model):
     # Note: model.image and model.labels are placeholders and must be fed values  #
     # when you call sess.run().                                                   #
     ###############################################################################
-    grad = tf.gradients(correct_scores, model.image)[0]
+    grad = tf.gradients(correct_scores, image)[0]
     
-    grad_val = sess.run(grad, feed_dict={model.image: X, model.labels: y})
+    grad_val = sess.run(grad, feed_dict={image: X, labels: y})
 
     saliency = np.amax(np.abs(grad_val), axis = 3)
     
@@ -333,8 +333,10 @@ def main(args):
         prediction = tf.to_int32(tf.argmax(logits, 1))
         correct_prediction = tf.equal(prediction, labels)
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
+        model_image = tf.placeholder('float',shape=[None,None,None,3],name='input_image')
+        model_labels = tf.placeholder('int32', shape=[None], name='labels')
         tf.get_default_graph().finalize()
+
 
     # --------------------------------------------------------------------------
     # Now that we have built the graph and finalized it, we define the session.
@@ -345,16 +347,16 @@ def main(args):
         init_fn(sess)  # load the pretrained weights
         #mask = np.arange(5)
         #show_saliency_maps(X, y, mask)
-        classifier = tf.reshape(graph,[-1, num_classes])
-       
+        classifier = logits
+        compute_saliency_maps(images, labels, classifier, model_image, model_label, sess)
         # Train the entire model for a few more epochs, continuing with the *same* weights.
-        for epoch in range(args.num_epochs2):
-            print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
-            sess.run(train_init_op)
+        # for epoch in range(args.num_epochs2):
+        #     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
+        #     sess.run(train_init_op)
 
-            # Check accuracy on the train and val sets every epoch
-            train_acc = check_accuracy(sess, correct_prediction, is_training, train_init_op)
-            print('Train accuracy: %f' % train_acc)
+        #     # Check accuracy on the train and val sets every epoch
+        #     train_acc = check_accuracy(sess, correct_prediction, is_training, train_init_op)
+        #     print('Train accuracy: %f' % train_acc)
         #sess.run(tf.global_variables_initializer())
 if __name__ == '__main__':
     args = parser.parse_args()
