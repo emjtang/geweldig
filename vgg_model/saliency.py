@@ -60,12 +60,11 @@ import tensorflow.contrib.slim.nets
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--train_dir', default='../data/images_top10/train')
-parser.add_argument('--val_dir', default='../data/images_top10/val')
 parser.add_argument('--model_path', default='vgg_16.ckpt', type=str)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
-parser.add_argument('--num_epochs1', default=15, type=int)
-parser.add_argument('--num_epochs2', default=5, type=int)
+parser.add_argument('--num_epochs1', default=1, type=int)
+parser.add_argument('--num_epochs2', default=1, type=int)
 parser.add_argument('--learning_rate1', default=1e-3, type=float)
 parser.add_argument('--learning_rate2', default=1e-5, type=float)
 parser.add_argument('--dropout_keep_prob', default=0.5, type=float)
@@ -73,6 +72,66 @@ parser.add_argument('--weight_decay', default=5e-4, type=float)
 
 VGG_MEAN = [123.68, 116.78, 103.94]
 output_file = "vgg_fc7_10epoch_loss.csv"
+
+def compute_saliency_maps(X, y, model):
+    """
+    Compute a class saliency map using the model for images X and labels y.
+
+    Input:
+    - X: Input images, numpy array of shape (N, H, W, 3)
+    - y: Labels for X, numpy of shape (N,)
+    - model: A SqueezeNet model that will be used to compute the saliency map.
+
+    Returns:
+    - saliency: A numpy array of shape (N, H, W) giving the saliency maps for the
+    input images.
+    """
+    saliency = None
+    # Compute the score of the correct class for each example.
+    # This gives a Tensor with shape [N], the number of examples.
+    #
+    # Note: this is equivalent to scores[np.arange(N), y] we used in NumPy
+    # for computing vectorized losses.
+    correct_scores = tf.gather_nd(model.classifier,
+                                  tf.stack((tf.range(X.shape[0]), model.labels), axis=1))
+    ###############################################################################
+    # TODO: Implement this function. You should use the correct_scores to compute #
+    # the loss, and tf.gradients to compute the gradient of the loss with respect #
+    # to the input image stored in model.image.                                   #
+    # Use the global sess variable to finally run the computation.                #
+    # Note: model.image and model.labels are placeholders and must be fed values  #
+    # when you call sess.run().                                                   #
+    ###############################################################################
+    grad = tf.gradients(correct_scores, model.image)[0]
+    
+    grad_val = sess.run(grad, feed_dict={model.image: X, model.labels: y})
+
+    saliency = np.amax(np.abs(grad_val), axis = 3)
+    
+    ##############################################################################
+    #                             END OF YOUR CODE                               #
+    ##############################################################################
+    return saliency
+
+def show_saliency_maps(X, y, mask, model):
+    mask = np.asarray(mask)
+    Xm = X[mask]
+    ym = y[mask]
+
+    saliency = compute_saliency_maps(Xm, ym, model)
+
+    for i in range(mask.size):
+        plt.subplot(2, mask.size, i + 1)
+        plt.imshow(deprocess_image(Xm[i]))
+        plt.axis('off')
+        plt.title(class_names[ym[i]])
+        plt.subplot(2, mask.size, mask.size + i + 1)
+        plt.title(mask[i])
+        plt.imshow(saliency[i], cmap=plt.cm.hot)
+        plt.axis('off')
+        plt.gcf().set_size_inches(10, 4)
+    plt.show()
+
 
 def list_images(directory):
     """
@@ -139,7 +198,6 @@ def check_accuracy(sess, correct_prediction, is_training, dataset_init_op):
 def main(args):
     # Get the list of filenames and corresponding list of labels for training et validation
     train_filenames, train_labels = list_images(args.train_dir)
-    val_filenames, val_labels = list_images(args.val_dir)
 
     num_classes = len(set(train_labels))
 
@@ -182,22 +240,9 @@ def main(args):
         # Note: we don't normalize the data here, as VGG was trained without normalization
         def training_preprocess(image, label):
             crop_image = tf.random_crop(image, [224, 224, 3])                       # (3)
-            #flip_image = tf.image.flip_left_right(crop_image)                       # (4)
 
             means = tf.reshape(tf.constant(VGG_MEAN), [1, 1, 3])
             centered_image = crop_image - means                                     # (5)
-
-            return centered_image, label
-
-        # Preprocessing (for validation)
-        # (3) Take a central 224x224 crop to the scaled image
-        # (4) Substract the per color mean `VGG_MEAN`
-        # Note: we don't normalize the data here, as VGG was trained without normalization
-        def val_preprocess(image, label):
-            crop_image = tf.image.resize_image_with_crop_or_pad(image, 224, 224)    # (3)
-
-            means = tf.reshape(tf.constant(VGG_MEAN), [1, 1, 3])
-            centered_image = crop_image - means                                     # (4)
 
             return centered_image, label
 
@@ -225,16 +270,6 @@ def main(args):
         train_dataset = train_dataset.shuffle(buffer_size=10000)  # don't forget to shuffle
         batched_train_dataset = train_dataset.batch(args.batch_size)
 
-        # Validation dataset
-        val_filenames = tf.constant(val_filenames)
-        val_labels = tf.constant(val_labels)
-        val_dataset = tf.contrib.data.Dataset.from_tensor_slices((val_filenames, val_labels))
-        val_dataset = val_dataset.map(_parse_function,
-            num_threads=args.num_workers, output_buffer_size=args.batch_size)
-        val_dataset = val_dataset.map(val_preprocess,
-            num_threads=args.num_workers, output_buffer_size=args.batch_size)
-        batched_val_dataset = val_dataset.batch(args.batch_size)
-
 
         # Now we define an iterator that can operator on either dataset.
         # The iterator can be reinitialized by calling:
@@ -251,7 +286,6 @@ def main(args):
         images, labels = iterator.get_next()
 
         train_init_op = iterator.make_initializer(batched_train_dataset)
-        val_init_op = iterator.make_initializer(batched_val_dataset)
 
         # Indicates whether we are in training or in test mode
         is_training = tf.placeholder(tf.bool)
@@ -276,21 +310,12 @@ def main(args):
 
         # Specify where the model checkpoint is (pretrained weights).
         model_path = args.model_path
-        assert(os.path.isfile(model_path))
+        #assert(os.path.isfile(model_path))
 
         # Restore only the layers up to fc7 (included)
         # Calling function `init_fn(sess)` will load all the pretrained weights.
-        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc7', 'vgg_16/fc8', 'vgg_16/fc6'])
+        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=[])
         init_fn = tf.contrib.framework.assign_from_checkpoint_fn(model_path, variables_to_restore)
-        saver = tf.train.Saver()
-        # Initialization operation from scratch for the new "fc8" layers
-        # `get_variables` will only return the variables whose name starts with the given pattern
-        fc6_variables = tf.contrib.framework.get_variables('vgg_16/fc6')
-        fc6_init = tf.variables_initializer(fc6_variables)
-        fc7_variables = tf.contrib.framework.get_variables('vgg_16/fc7')
-        fc7_init = tf.variables_initializer(fc7_variables)
-        fc8_variables = tf.contrib.framework.get_variables('vgg_16/fc8')
-        fc8_init = tf.variables_initializer(fc8_variables)
 
         # ---------------------------------------------------------------------
         # Using tf.losses, any loss is added to the tf.GraphKeys.LOSSES collection
@@ -300,98 +325,37 @@ def main(args):
 
         # First we want to train only the reinitialized last 3 layers fc6, fc7, fc8 for a few epochs.
         # We run minimize the loss only with respect to the fc8 variables (weight and bias).i
-        fc6_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        fc6_train_op = fc6_optimizer.minimize(loss, var_list=fc6_variables)
-
-        fc7_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        fc7_train_op = fc7_optimizer.minimize(loss, var_list=fc7_variables)
-
-        fc8_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        fc8_train_op = fc8_optimizer.minimize(loss, var_list=fc8_variables)
 
         # Then we want to finetune the entire model for a few epochs.
         # We run minimize the loss only with respect to all the variables.
-        full_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate2)
-        full_train_op = full_optimizer.minimize(loss)
 
         # Evaluation metrics
         prediction = tf.to_int32(tf.argmax(logits, 1))
         correct_prediction = tf.equal(prediction, labels)
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-	tf.summary.scalar('accuracy', accuracy)
-        tf.summary.scalar('loss', loss)
-        merged = tf.summary.merge_all()
+
         tf.get_default_graph().finalize()
 
     # --------------------------------------------------------------------------
     # Now that we have built the graph and finalized it, we define the session.
     # The session is the interface to *run* the computational graph.
     # We can call our training operations with `sess.run(train_op)` for instance
-    f = open(output_file, 'w')
-    f.write("epoch,learning_rate,train,val,t_loss,v_loss\n")
+ 
     with tf.Session(graph=graph) as sess:
         init_fn(sess)  # load the pretrained weights
-        train_writer = tf.summary.FileWriter("train", sess.graph)
-        sess.run(fc6_init)
-        sess.run(fc7_init)
-        sess.run(fc8_init)  # initialize the new fc8 layer
-        #new_saver = tf.train.import_meta_graph("learned-weights.meta")
-	#new_saver.restore(sess, tf.train.latest_checkpoint('./'))
-        train_accs = []
-        val_accs = []
-        # Update only the last layer for a few epochs.
-        for epoch in range(args.num_epochs1):
-            # Run an epoch over the training data.
-            print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
-            # Here we initialize the iterator with the training set.
-            # This means that we can go through an entire epoch until the iterator becomes empty.
-            sess.run(train_init_op)
-            #saver.restore(sess, "learned-weights")
-            #new_saver = tf.train.import_meta_graph("learned-weights.meta")
-            #new_saver.restore(sess, tf.train.latest_checkpoint('./'))
-            while True:
-                try:
-                    summary, _ = sess.run([merged, fc6_train_op], {is_training: True})
-                    summary, _ = sess.run([merged, fc7_train_op], {is_training: True})
-                    summary, _ = sess.run([merged, fc8_train_op], {is_training: True})
-                    train_writer.add_summary(summary, epoch)
-                except tf.errors.OutOfRangeError:
-                    break
-
-            # Check accuracy on the train and val sets every epoch.
-            train_acc = check_accuracy(sess, correct_prediction, is_training, train_init_op)
-            val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
-	    print('Train accuracy: %f' % train_acc)
-            print('Val accuracy: %f\n' % val_acc)
-
-            f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc)+"\n")
-            train_accs.append(train_acc)
-            val_accs.append(val_acc)
-	
-        train_accs_full = []
-        val_accs_full = []
+        #mask = np.arange(5)
+        #show_saliency_maps(X, y, mask)
+        classifier = tf.reshape(graph,[-1, num_classes])
+       
         # Train the entire model for a few more epochs, continuing with the *same* weights.
         for epoch in range(args.num_epochs2):
             print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
             sess.run(train_init_op)
-            while True:
-                try:
-                    _ = sess.run(full_train_op, {is_training: True})
-                except tf.errors.OutOfRangeError:
-                    break
 
             # Check accuracy on the train and val sets every epoch
             train_acc = check_accuracy(sess, correct_prediction, is_training, train_init_op)
-            val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
             print('Train accuracy: %f' % train_acc)
-            print('Val accuracy: %f\n' % val_acc)
-            f.write(str(epoch) + "," + str(args.learning_rate2) + "," + str(train_acc) + "," + str(val_acc)+"\n")
-            train_accs_full.append(train_acc)
-            val_accs_full.append(val_acc)
-        f.close()
         #sess.run(tf.global_variables_initializer())
-        save_path = saver.save(sess, "learned-weights")
-	print(save_path)
 if __name__ == '__main__':
     args = parser.parse_args()
     main(args)

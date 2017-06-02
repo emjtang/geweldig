@@ -64,8 +64,8 @@ parser.add_argument('--val_dir', default='../data/images_top10/val')
 parser.add_argument('--model_path', default='vgg_16.ckpt', type=str)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--num_workers', default=4, type=int)
-parser.add_argument('--num_epochs1', default=15, type=int)
-parser.add_argument('--num_epochs2', default=5, type=int)
+parser.add_argument('--num_epochs1', default=1, type=int)
+parser.add_argument('--num_epochs2', default=1, type=int)
 parser.add_argument('--learning_rate1', default=1e-3, type=float)
 parser.add_argument('--learning_rate2', default=1e-5, type=float)
 parser.add_argument('--dropout_keep_prob', default=0.5, type=float)
@@ -276,21 +276,12 @@ def main(args):
 
         # Specify where the model checkpoint is (pretrained weights).
         model_path = args.model_path
-        assert(os.path.isfile(model_path))
+        #assert(os.path.isfile(model_path))
 
         # Restore only the layers up to fc7 (included)
         # Calling function `init_fn(sess)` will load all the pretrained weights.
-        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=['vgg_16/fc7', 'vgg_16/fc8', 'vgg_16/fc6'])
+        variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=[])
         init_fn = tf.contrib.framework.assign_from_checkpoint_fn(model_path, variables_to_restore)
-        saver = tf.train.Saver()
-        # Initialization operation from scratch for the new "fc8" layers
-        # `get_variables` will only return the variables whose name starts with the given pattern
-        fc6_variables = tf.contrib.framework.get_variables('vgg_16/fc6')
-        fc6_init = tf.variables_initializer(fc6_variables)
-        fc7_variables = tf.contrib.framework.get_variables('vgg_16/fc7')
-        fc7_init = tf.variables_initializer(fc7_variables)
-        fc8_variables = tf.contrib.framework.get_variables('vgg_16/fc8')
-        fc8_init = tf.variables_initializer(fc8_variables)
 
         # ---------------------------------------------------------------------
         # Using tf.losses, any loss is added to the tf.GraphKeys.LOSSES collection
@@ -300,27 +291,15 @@ def main(args):
 
         # First we want to train only the reinitialized last 3 layers fc6, fc7, fc8 for a few epochs.
         # We run minimize the loss only with respect to the fc8 variables (weight and bias).i
-        fc6_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        fc6_train_op = fc6_optimizer.minimize(loss, var_list=fc6_variables)
-
-        fc7_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        fc7_train_op = fc7_optimizer.minimize(loss, var_list=fc7_variables)
-
-        fc8_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate1)
-        fc8_train_op = fc8_optimizer.minimize(loss, var_list=fc8_variables)
 
         # Then we want to finetune the entire model for a few epochs.
         # We run minimize the loss only with respect to all the variables.
-        full_optimizer = tf.train.GradientDescentOptimizer(args.learning_rate2)
-        full_train_op = full_optimizer.minimize(loss)
 
         # Evaluation metrics
         prediction = tf.to_int32(tf.argmax(logits, 1))
         correct_prediction = tf.equal(prediction, labels)
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-	tf.summary.scalar('accuracy', accuracy)
-        tf.summary.scalar('loss', loss)
-        merged = tf.summary.merge_all()
+
         tf.get_default_graph().finalize()
 
     # --------------------------------------------------------------------------
@@ -329,14 +308,9 @@ def main(args):
     # We can call our training operations with `sess.run(train_op)` for instance
     f = open(output_file, 'w')
     f.write("epoch,learning_rate,train,val,t_loss,v_loss\n")
+    batch_num = 0
     with tf.Session(graph=graph) as sess:
         init_fn(sess)  # load the pretrained weights
-        train_writer = tf.summary.FileWriter("train", sess.graph)
-        sess.run(fc6_init)
-        sess.run(fc7_init)
-        sess.run(fc8_init)  # initialize the new fc8 layer
-        #new_saver = tf.train.import_meta_graph("learned-weights.meta")
-	#new_saver.restore(sess, tf.train.latest_checkpoint('./'))
         train_accs = []
         val_accs = []
         # Update only the last layer for a few epochs.
@@ -346,24 +320,12 @@ def main(args):
             # Here we initialize the iterator with the training set.
             # This means that we can go through an entire epoch until the iterator becomes empty.
             sess.run(train_init_op)
-            #saver.restore(sess, "learned-weights")
-            #new_saver = tf.train.import_meta_graph("learned-weights.meta")
-            #new_saver.restore(sess, tf.train.latest_checkpoint('./'))
-            while True:
-                try:
-                    summary, _ = sess.run([merged, fc6_train_op], {is_training: True})
-                    summary, _ = sess.run([merged, fc7_train_op], {is_training: True})
-                    summary, _ = sess.run([merged, fc8_train_op], {is_training: True})
-                    train_writer.add_summary(summary, epoch)
-                except tf.errors.OutOfRangeError:
-                    break
 
             # Check accuracy on the train and val sets every epoch.
             train_acc = check_accuracy(sess, correct_prediction, is_training, train_init_op)
             val_acc = check_accuracy(sess, correct_prediction, is_training, val_init_op)
 	    print('Train accuracy: %f' % train_acc)
             print('Val accuracy: %f\n' % val_acc)
-
             f.write(str(epoch) + "," + str(args.learning_rate1) + "," + str(train_acc) + "," + str(val_acc)+"\n")
             train_accs.append(train_acc)
             val_accs.append(val_acc)
@@ -374,11 +336,6 @@ def main(args):
         for epoch in range(args.num_epochs2):
             print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
             sess.run(train_init_op)
-            while True:
-                try:
-                    _ = sess.run(full_train_op, {is_training: True})
-                except tf.errors.OutOfRangeError:
-                    break
 
             # Check accuracy on the train and val sets every epoch
             train_acc = check_accuracy(sess, correct_prediction, is_training, train_init_op)
@@ -390,8 +347,6 @@ def main(args):
             val_accs_full.append(val_acc)
         f.close()
         #sess.run(tf.global_variables_initializer())
-        save_path = saver.save(sess, "learned-weights")
-	print(save_path)
 if __name__ == '__main__':
     args = parser.parse_args()
     main(args)

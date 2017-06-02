@@ -46,3 +46,10 @@ sudo pip install --upgrade https://storage.googleapis.com/tensorflow/linux/gpu/t
 If python 3.5 us
 pip3 install --upgrade https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow_gpu-1.2.0rc0-cp35-cp35m-linux_x86_64.whl
 
+# Tensorboard
+
+See here for more information https://www.tensorflow.org/get_started/summaries_and_tensorboard
+
+Make sure you set static IP for the GPU instance, and then run the following:
+tensorboard --logdir=train --port=7000
+
