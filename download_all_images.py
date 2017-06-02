@@ -30,7 +30,10 @@ def keyboard(banner=None):
 
 def download_image(info):
     image_id, image_url, artist, folder = info
-    artist = re.sub('[^0-9a-zA-Z]+', '', artist)
+    if artist not in ["GeorgeHendrikBreitner","JanLuyken","ReinierVinkeles","MariusBauer","IsaacIsraels","BernardPicart","RembrandtHarmenszvanRijn","JohannesTavenraat","WillemWitsen", "SimonFokke"]:
+        return
+    print artist
+    artist = re.sub('[^0-9a-zA-Z]+', "", artist)
     artist_dir = image_dir +  folder + artist + "/"
     #if not os.path.exists(artist_dir):
      #   os.makedirs(artist_dir)
@@ -73,12 +76,14 @@ def main():
         #print img
         image_id, image_url, artist = img
         folder = "train/"
+        if artist is None:
+            continue
         artist_counts[artist] += 1
         if artist_counts[artist] >= artist_total_counts[artist] * 0.8:
             folder = "test/"
         elif artist_counts[artist] >= artist_total_counts[artist] * 0.6:
             folder = "val/"
-	artist = re.sub('[^0-9a-zA-Z]+', '', artist)
+        artist = re.sub('[^0-9a-zA-Z]+', '', artist)
         artist_dir = image_dir +  folder + artist + "/"
         if not os.path.exists(artist_dir):
             os.makedirs(artist_dir)
