@@ -335,7 +335,7 @@ def main(args):
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         model_image = tf.placeholder('float',shape=[None,None,None,3],name='input_image')
         model_labels = tf.placeholder('int32', shape=[None], name='labels')
-        tf.get_default_graph().finalize()
+        #tf.get_default_graph().finalize()
 
 
     # --------------------------------------------------------------------------
@@ -348,7 +348,7 @@ def main(args):
         #mask = np.arange(5)
         #show_saliency_maps(X, y, mask)
         classifier = logits
-        compute_saliency_maps(images, labels, classifier, model_image, model_label, sess)
+        compute_saliency_maps(images, labels, classifier, model_image, model_labels, sess)
         # Train the entire model for a few more epochs, continuing with the *same* weights.
         # for epoch in range(args.num_epochs2):
         #     print('Starting epoch %d / %d' % (epoch + 1, args.num_epochs1))
