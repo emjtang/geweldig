@@ -84,6 +84,8 @@ def main():
         elif artist_counts[artist] >= artist_total_counts[artist] * 0.6:
             folder = "val/"
         artist = re.sub('[^0-9a-zA-Z]+', '', artist)
+        if artist not in ["GeorgeHendrikBreitner","JanLuyken","ReinierVinkeles","MariusBauer","IsaacIsraels","BernardPicart","RembrandtHarmenszvanRijn","JohannesTavenraat","WillemWitsen", "SimonFokke"]:
+            continue
         artist_dir = image_dir +  folder + artist + "/"
         if not os.path.exists(artist_dir):
             os.makedirs(artist_dir)
