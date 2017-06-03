@@ -1,3 +1,4 @@
+from PIL import Image
 import argparse
 import torch
 import torch.nn as nn
@@ -82,6 +83,7 @@ def main(args):
                     shuffle=True)
 
   model = torch.load("pytorch_full")
+  model.eval()
   #print(model)
   filename=r'../data/images_top10/train/BernardPicart/en-NG-598-A.jpg'
   for x, y in train_loader:
@@ -90,13 +92,20 @@ def main(args):
     scores = model(x_var)
     #print(scores)
     _, preds = scores.data.cpu().max(1)
-    print(preds[0][0], y[0])
-	 
-#  img = skimage.io.imread(filename)
-#  x = V(centre_crop(img).unsqueeze(0), volatile=True)
-#  logit = model(x)
-#  print(logit)
-  #model = pytorch_full
+    print("predicted:", preds[0][0], ", actual", y[0])
+  model.eval()
+  img = Image.open(filename).convert('RGB')
+  inputVar = Variable(train_transform(img).unsqueeze(0))
+  prediction = model(inputVar)	 
+  print("prediction:", prediction)
+
+  probs, indices = (-nn.Softmax()(prediction).data).sort()
+  print("probs", probs)
+  print("indices", indices)
+  probs = (-probs).numpy()[0][:10]; indices = indices.numpy()[0][:10]
+  print(probs)
+  _, predicted = torch.max(prediction.data, 1)
+  print("predicted:", predicted[0][0], ", actual", y[0])
 
 if __name__ == '__main__':
   args = parser.parse_args()
