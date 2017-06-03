@@ -2,5 +2,9 @@
 slim/.ipynb_checkpoints/
 slim/MNIST_data/
 slim/mnistSlim_tutorial.ipynb
+resnet_model/inception_resnet_v2_2016_08_30.ckpt
+resnet_model/data/
 vgg_model/ca_example/
 vgg_model/data/
+vgg_model/vgg_16.ckpt
+vgg_model/learned-weights.data-00000-of-00001
