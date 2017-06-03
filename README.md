@@ -57,7 +57,9 @@ tensorboard --logdir=train --port=7000
 
 # 1. Install Conda
 `wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh`
+
 `bash Miniconda2-latest-Linux-x86_64.sh`
+
 Type `:q` to leave the License agreement, and make sure you type "yes" to adding to .bashrc!
 
 # 2. Install pytorch
@@ -65,7 +67,9 @@ From http://pytorch.org/
 `conda install pytorch torchvision cuda80 -c soumith`
 
 If it says conda isn't found, try this to double check conda:
+
 `export PATH=/home/emjtang/miniconda2/bin:$PATH`
+
 `conda --version` 
 
 
