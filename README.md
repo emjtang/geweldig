@@ -72,5 +72,7 @@ If it says conda isn't found, try this to double check conda:
 
 `conda --version` 
 
+# Classes
 
+`{'ReinierVinkeles': 6, 'WillemWitsen': 9, 'JohannesTavenraat': 4, 'GeorgeHendrikBreitner': 1, 'RembrandtHarmenszvanRijn': 7, 'BernardPicart': 0, 'SimonFokke': 8, 'IsaacIsraels': 2, 'JanLuyken': 3, 'MariusBauer': 5}`
 
