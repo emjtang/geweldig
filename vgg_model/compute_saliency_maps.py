@@ -1,11 +1,14 @@
 '''
 Compute saliency maps using PyTorch because Tensorflow SUCKS
 '''
+from PIL import Image
+import matplotlib.pyplot as plt
 import argparse
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+import pickle
 
 import torchvision
 import torchvision.transforms as T
@@ -70,7 +73,9 @@ def show_saliency_maps(X, y, model):
     # Convert the saliency map from Torch Tensor to numpy array and show images
     # and saliency maps together.
     saliency = saliency.numpy()
-    N = X.shape[0]
+    pickle.dump(saliency, open('saliency.pkl', 'wb'))
+    #N = X.shape[0]
+    N = 1
     for i in range(N):
         plt.subplot(2, N, i + 1)
         plt.imshow(X[i])
@@ -151,6 +156,7 @@ def main(args):
 
   img = Image.open(filename).convert('RGB')
   X = test_transform(img).unsqueeze(0)
+  pickle.dump(X, open('X.pkl', 'wb'))
   y = 0
   show_saliency_maps([X], [y], model)
   # for x, y in train_loader:
