@@ -9,6 +9,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import pickle
+import os
 
 import torchvision
 import torchvision.transforms as T
@@ -36,21 +37,15 @@ def compute_saliency_maps(X, y, model):
     images.
     """
     # Make sure the model is in "test" mode
+    X_tensor = torch.cat(X)
+    y_tensor = torch.LongTensor(y)
     model.eval()
     # dtype = torch.FloatTensor
     
     # Wrap the input tensors in Variables
-    X_var = Variable(X, requires_grad=True)
-    y_var = Variable(y)
+    X_var = Variable(X_tensor, requires_grad=True)
+    y_var = Variable(y_tensor)
     saliency = None
-    ##############################################################################
-    # TODO: Implement this function. Perform a forward and backward pass through #
-    # the model to compute the gradient of the correct class score with respect  #
-    # to each input image. You first want to compute the loss over the correct   #
-    # scores, and then compute the gradients with a backward pass.               #
-    ##############################################################################
-    # model.type(dtype)
-
     scores = model(X_var)
 
     scores_arr = scores.gather(1, y_var.view(-1, 1)).squeeze()
@@ -61,6 +56,7 @@ def compute_saliency_maps(X, y, model):
     saliency = X_var.grad.data.abs().max(dim=1)[0].squeeze()
     
     return saliency
+
 def show_saliency_maps(X, y, model):
     # Convert X and y from numpy arrays to Torch Tensors
     # X_tensor = torch.cat([preprocess(Image.fromarray(x)) for x in X])
@@ -73,7 +69,7 @@ def show_saliency_maps(X, y, model):
     # Convert the saliency map from Torch Tensor to numpy array and show images
     # and saliency maps together.
     saliency = saliency.numpy()
-    pickle.dump(saliency, open('saliency.pkl', 'wb'))
+    #pickle.dump(saliency, open('saliency.pkl', 'wb'))
     #N = X.shape[0]
     N = 1
     for i in range(N):
@@ -93,72 +89,51 @@ def main(args):
   dtype = torch.FloatTensor
   if args.use_gpu:
     dtype = torch.cuda.FloatTensor
-
-  # Use the torchvision.transforms package to set up a transformation to use
-  # for our images at training time. The train-time transform will incorporate
-  # data augmentation and preprocessing. At training time we will perform the
-  # following preprocessing on our images:
-  # (1) Resize the image so its smaller side is 256 pixels long
-  # (2) Take a random 224 x 224 crop to the scaled image
-  # (3) Horizontally flip the image with probability 1/2
-  # (4) Convert the image from a PIL Image to a Torch Tensor
-  # (5) Normalize the image using the mean and variance of each color channel
-  #     computed on the ImageNet dataset.
   test_transform = T.Compose([
     T.Scale(224),
     T.CenterCrop(224),
     T.ToTensor(),
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
   ])
-  # You load data in PyTorch by first constructing a Dataset object which
-  # knows how to load individual data points (images and labels) and apply a
-  # transform. The Dataset object is then wrapped in a DataLoader, which iterates
-  # over the Dataset to construct minibatches. The num_workers flag to the
-  # DataLoader constructor is the number of background threads to use for loading
-  # data; this allows dataloading to happen off the main thread. You can see the
-  # definition for the base Dataset class here:
-  # https://github.com/pytorch/pytorch/blob/master/torch/utils/data/dataset.py
-  #
-  # and you can see the definition for the DataLoader class here:
-  # https://github.com/pytorch/pytorch/blob/master/torch/utils/data/dataloader.py#L262
-  #
-  # The torchvision package provides an ImageFolder Dataset class which knows
-  # how to read images off disk, where the image from each category are stored
-  # in a subdirectory.
-  #
-  # You load data in PyTorch by first constructing a Dataset object which
-  # knows how to load individual data points (images and labels) and apply a
-  # transform. The Dataset object is then wrapped in a DataLoader, which iterates
-  # over the Dataset to construct minibatches. The num_workers flag to the
-  # DataLoader constructor is the number of background threads to use for loading
-  # data; this allows dataloading to happen off the main thread. You can see the
-  # definition for the base Dataset class here:
-  # https://github.com/pytorch/pytorch/blob/master/torch/utils/data/dataset.py
-  #
-  # and you can see the definition for the DataLoader class here:
-  # https://github.com/pytorch/pytorch/blob/master/torch/utils/data/dataloader.py#L262
-  #
-  # The torchvision package provides an ImageFolder Dataset class which knows
-  # how to read images off disk, where the image from each category are stored
-  # in a subdirectory.
-  #
-  # You can read more about the ImageFolder class here:
-  # https://github.com/pytorch/vision/blob/master/torchvision/datasets/folder.py
+  
+  class_to_idx = {'ReinierVinkeles': 6, 'WillemWitsen': 9, 'JohannesTavenraat': 4, 'GeorgeHendrikBreitner': 1,
+                  'RembrandtHarmenszvanRijn': 7, 'BernardPicart': 0, 'SimonFokke': 8, 'IsaacIsraels': 2, 'JanLuyken': 3,
+                  'MariusBauer': 5}
+
   model = torch.load("pytorch_full")
   model.eval()
 
-  filename=r'../data/images_top10/train/BernardPicart/en-NG-598-A.jpg'
+  #filename=r'../data/images_top10/train/BernardPicart/en-NG-598-A.jpg'
+  directory='../random_crop/r_crop_test/random_crop'
+  labels = os.listdir(directory)
+  files_and_labels = []
+  for label in labels:
+    for f in os.listdir(os.path.join(directory, label)):
+      files_and_labels.append((os.path.join(directory, label, f), label))
 
+  filenames, labels = zip(*files_and_labels)
+  filenames = list(filenames)
+  labels = list(labels)
 
+  
+  for i in range(len(filenames)):
+    filename = filenames[i]
+    label = labels[i]
+    img = Image.open(filename).convert('RGB')
+    X = test_transform(img).unsqueeze(0)
+    y = class_to_idx[label]
+    print filename, y
+    image_id = os.path.splitext(os.path.basename(filename))[0]
+    saliency = compute_saliency_maps([X], [y], model).numpy()
+    pickle_filename = 'saliency_maps/' + image_id + '.pkl'
+    pickle.dump(saliency, open(pickle_filename, 'wb'))
+  
+  #img = Image.open(filename).convert('RGB')
+  #X = test_transform(img).unsqueeze(0)
+  #print(X)
+  #y = 0
 
-  model = torch.load("pytorch_full")
-  #print(model)
-
-  img = Image.open(filename).convert('RGB')
-  X = test_transform(img).unsqueeze(0)
-  pickle.dump(X, open('X.pkl', 'wb'))
-  y = 0
-  show_saliency_maps([X], [y], model)
+  #show_saliency_maps([X], [y], model)
   # for x, y in train_loader:
   #   x_var = Variable(x.type(dtype))
   #   y_var = Variable(y.type(dtype).long())
@@ -166,12 +141,6 @@ def main(args):
   #   #print(scores)
   #   _, preds = scores.data.cpu().max(1)
   #   print(preds[0][0], y[0])
-   
-#  img = skimage.io.imread(filename)
-#  x = V(centre_crop(img).unsqueeze(0), volatile=True)
-#  logit = model(x)
-#  print(logit)
-  #model = pytorch_full
 
 if __name__ == '__main__':
   args = parser.parse_args()

@@ -37,27 +37,41 @@ def main(args):
   graph = tf.Graph()
   image = importImg("test.jpg")
   num_classes = 10
-  #vgg = tf.contrib.slim.nets.vgg
-  #with slim.arg_scope(vgg.vgg_arg_scope()):
-      #logits, _ = vgg.vgg_16(image, num_classes=num_classes, is_training=False,
-                             #dropout_keep_prob=.8)
-
+  vgg = tf.contrib.slim.nets.vgg
+  with slim.arg_scope(vgg.vgg_arg_scope()):
+     logits, _ = vgg.vgg_16([image], num_classes=num_classes, is_training=False,
+                             dropout_keep_prob=.8)
+   
   # Specify where the model checkpoint is (pretrained weights).
   model_path = args.model_path
   label = tf.placeholder(tf.int32)
-  #variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=[])
+  variables_to_restore = tf.contrib.framework.get_variables_to_restore(exclude=[])
   #init_fn = tf.contrib.framework.assign_from_checkpoint_fn(model_path, variables_to_restore)
-  saver = tf.train.Saver()
-  ckpt = tf.train.get_checkpoint_state(args.ckpt_path)
+  #ckpt = tf.train.get_checkpoint_state(args.model_path)i
+  #print(predictions)
+  saver = tf.train.Saver(variables_to_restore)
   with graph.as_default():
     with tf.Session(graph=graph) as sess:
-      saver.restore(sess, ckpt.model_checkpoint_path)
+      #images = tf.placeholder("float", [1, 224, 224, 3]) 
+      #vgg16.build(images)
+      #saver = tf.train.import_meta_graph('learned-weights.meta')
+      saver.restore(sess, tf.train.latest_checkpoint('./'))
+      prediction=tf.argmax(logits,1)
+      best = sess.run([prediction])
+      print(best)
+      #all_vars = tf.get_collection('vars')
+      #print(all_vars)
+      #for v in all_vars:
+        #v_ = sess.run(v)
+        #print(v_)
+      #tf.train.Saver.restore(sess, ckpt.model_checkpoint_path)
       #softmaxval = sess.run(label, feed)
       #init_fn(sess)
       # saver = tf.train.Saver()
       # ckpt = tf.train.get_checkpoint_state(args.ckpt_path)
-      predictions = sess.run(label, feed_dict={x: image})
-      print(predictions)
+      
+      #pred = sess.run(label, feed_dict={images: image})
+      #print(pred)
 
 if __name__ == '__main__':
     args = parser.parse_args()
