@@ -103,8 +103,9 @@ def main(args):
   model = torch.load("pytorch_full")
   model.eval()
 
-  #filename=r'../data/images_top10/train/BernardPicart/en-NG-598-A.jpg'
-  directory = '../data/images_top10/train/RembrandtHarmenszvanRijn'
+  filename= '../data/images_top10/train/GeorgeHendrikBreitner/en-SK-A-3554.jpg'
+  
+  #directory = '../data/images_top10/train/RembrandtHarmenszvanRijn'
   #directory='../random_crop/r_crop_test/random_crop'
   
   '''
@@ -115,6 +116,7 @@ def main(args):
       files_and_labels.append((os.path.join(directory, label, f), label))
 
   filenames, labels = zip(*files_and_labels)
+  '''
   '''
   files_and_labels = []
   for f in os.listdir(directory):
@@ -137,13 +139,16 @@ def main(args):
     saliency = compute_saliency_maps([X], [y], model).numpy()
     pickle_filename = 'saliency_maps/rembrandt/' + image_id + '.pkl'
     pickle.dump(saliency, open(pickle_filename, 'wb'))
-  
-  #img = Image.open(filename).convert('RGB')
-  #X = test_transform(img).unsqueeze(0)
+  '''
+  img = Image.open(filename).convert('RGB')
+  X = test_transform(img).unsqueeze(0)
   #print(X)
-  #y = 0
+  y = 0
 
-  #show_saliency_maps([X], [y], model)
+  saliency = compute_saliency_maps([X], [y], model).numpy()
+  pickle_filename = 'saliency_maps/en-SK-A-3554.pkl'
+  print(pickle_filename)
+  pickle.dump(saliency, open(pickle_filename, 'wb'))
   # for x, y in train_loader:
   #   x_var = Variable(x.type(dtype))
   #   y_var = Variable(y.type(dtype).long())
