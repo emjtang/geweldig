@@ -104,7 +104,10 @@ def main(args):
   model.eval()
 
   #filename=r'../data/images_top10/train/BernardPicart/en-NG-598-A.jpg'
-  directory='../random_crop/r_crop_test/random_crop'
+  directory = '../data/images_top10/train/RembrandtHarmenszvanRijn'
+  #directory='../random_crop/r_crop_test/random_crop'
+  
+  '''
   labels = os.listdir(directory)
   files_and_labels = []
   for label in labels:
@@ -112,12 +115,19 @@ def main(args):
       files_and_labels.append((os.path.join(directory, label, f), label))
 
   filenames, labels = zip(*files_and_labels)
+  '''
+  files_and_labels = []
+  for f in os.listdir(directory):
+    files_and_labels.append((os.path.join(directory, f), 'RembrandtHarmenszvanRijn'))
+  filenames, labels = zip(*files_and_labels)
+
   filenames = list(filenames)
   labels = list(labels)
-
   
   for i in range(len(filenames)):
     filename = filenames[i]
+    if 'en-SK-' not in filename:
+      continue
     label = labels[i]
     img = Image.open(filename).convert('RGB')
     X = test_transform(img).unsqueeze(0)
@@ -125,7 +135,7 @@ def main(args):
     print filename, y
     image_id = os.path.splitext(os.path.basename(filename))[0]
     saliency = compute_saliency_maps([X], [y], model).numpy()
-    pickle_filename = 'saliency_maps/' + image_id + '.pkl'
+    pickle_filename = 'saliency_maps/rembrandt/' + image_id + '.pkl'
     pickle.dump(saliency, open(pickle_filename, 'wb'))
   
   #img = Image.open(filename).convert('RGB')
