@@ -103,7 +103,7 @@ def main(args):
   model = torch.load("pytorch_full")
   model.eval()
 
-  filename= '../data/images_top10/test/BernardPicart/en-BK-NM-12896.jpg'
+  filename= '../data/images_top10/train/GeorgeHendrikBreitner/en-SK-A-3554.jpg'
   
   #directory = '../data/images_top10/train/RembrandtHarmenszvanRijn'
   #directory='../random_crop/r_crop_test/random_crop'
@@ -146,7 +146,7 @@ def main(args):
   y = 0
 
   saliency = compute_saliency_maps([X], [y], model).numpy()
-  pickle_filename = 'saliency_maps/en-BK-NM-12896.pkl'
+  pickle_filename = 'saliency_maps/en-SK-A-3554.pkl'
   print(pickle_filename)
   pickle.dump(saliency, open(pickle_filename, 'wb'))
   # for x, y in train_loader:
